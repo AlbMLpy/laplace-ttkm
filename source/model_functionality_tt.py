@@ -5,9 +5,9 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from jax import Array, jit
-from jax.typing import ArrayLike
 
 from .features import FeatureMap
+from .matrix_operations import khatri_rao_row
 
 def init_weights_tt(
     m_order: int, 
@@ -86,3 +86,110 @@ def predict_score_tt(
         g_hat = jnp.einsum('ni,nr->nri', fmap(x[:, k+1], q), g_core) 
     pred = jnp.einsum('nri,rip->np', g_hat, w_tt[-1]).squeeze()
     return jnp.real(pred)
+
+#@jit
+def _prepare_system_tt(
+    left_mtx: Optional[Array],
+    fk_mtx: Array,
+    right_mtx: Optional[Array], 
+    y: Array,
+) -> tuple[Array, Array]:
+    if left_mtx is None:
+        Ak = khatri_rao_row(fk_mtx, right_mtx)
+    elif right_mtx is None:
+        Ak = khatri_rao_row(left_mtx, fk_mtx)
+    else:
+        Ak = khatri_rao_row(khatri_rao_row(left_mtx, fk_mtx), right_mtx)
+    return Ak.T.conj().dot(Ak), Ak.T.conj().dot(y)
+
+#@jit
+def prepare_system_tt(
+    ind: int,
+    buf: list[Array],
+    fk_mtx: Array,
+    y: Array,
+) -> tuple[Array, Array]:
+    """
+    Prepare local linear system of equations for one TT core.
+    """
+    if ind == 0:
+        A, b = _prepare_system_tt(buf[ind], fk_mtx, None, y)
+    elif ind == len(buf):
+        A, b = _prepare_system_tt(None, fk_mtx, buf[ind-1], y)
+    else:
+        A, b = _prepare_system_tt(buf[ind], fk_mtx, buf[ind-1], y)
+    return A, b
+
+def postprocess_tt(bottom_up, ind, buf, fk_mtx, wk):
+    """
+    Update the corresponding buffer matrices after the ALS update.
+    """
+    if bottom_up: # d=0, ..., D-1
+        if ind == 0:
+            buf[ind] = jnp.einsum(
+                'nri,rip->np', fk_mtx[:, None, :], wk)
+        else:
+            g_hat = jnp.einsum('ni,nr->nri', fk_mtx, buf[ind-1])
+            buf[ind] = jnp.einsum('nri,rip->np', g_hat, wk)
+    else: # d=D-1, ..., 1
+        if ind == len(buf):
+            buf[ind-1] = jnp.einsum(
+                'npi,rip->nr', fk_mtx[:, None, :], wk)
+        else:
+            g_hat = jnp.einsum('ni,nr->nri', fk_mtx, buf[ind])
+            buf[ind-1] = jnp.einsum('npi,rip->nr', g_hat, wk)
+
+#@partial(jit, static_argnums=(4,))
+def update_weights_tt(
+    w_tt: list[Array], 
+    kd: int, 
+    x: Array, 
+    y: Array, 
+    fmap: FeatureMap, 
+    gamma_w: float, 
+    beta_e: float, 
+    buf: list[Array],
+    tracker: Optional[object] = None,
+) -> list[Array]:
+    """ 
+    Full update of all the model's TT cores (one sweep/epoch).
+
+    Note: TT cores are updated 2 times except for the first and the last ones.
+    """
+    d_dim, bottom_up = len(w_tt), True
+    upd_sequence = list(range(d_dim)) + list(reversed(range(1, d_dim-1)))
+    for ind in upd_sequence:
+        if ind == d_dim - 1: bottom_up = False
+        # Prepare matrices for a linear system:
+        k, q = divmod(ind, kd) # q starts from zero -> for fmap
+        wk, fk_mtx = w_tt[ind], fmap(x[:, k], q)
+        A, b = prepare_system_tt(ind, buf, fk_mtx, y)
+        # Solve a linear system:
+        A += gamma_w / beta_e * jnp.eye(A.shape[0])
+        sol = jnp.linalg.solve(A, b)
+        w_tt[ind] = wk = jnp.array(sol.reshape(wk.shape, order='F')) 
+        # Postprocess the buffer:
+        postprocess_tt(bottom_up, ind, buf, fk_mtx, wk)
+        if tracker: tracker.track(w_tt, kd, fmap)
+    return w_tt
+
+def als_tt(
+    w_tt: list[Array], 
+    kd: int,  
+    x: Array, 
+    y: Array, 
+    fmap: FeatureMap, 
+    n_epoch: int, 
+    gamma_w: float, 
+    beta_e: float, 
+    tracker: Optional[object] = None,
+) -> list[Array]:
+    """
+    Compute "optimal" TT-based model weights using ALS optimization algorithm.
+    """
+    buf = prepare_buffer_tt(x, kd, w_tt, fmap)
+    if tracker: tracker.track(w_tt, kd, fmap)
+    for _ in range(n_epoch):
+        w_tt = update_weights_tt(w_tt, kd, x, y, fmap, gamma_w, beta_e, buf)
+        if tracker: tracker.track(w_tt, kd, fmap)
+    return w_tt
