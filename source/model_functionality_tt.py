@@ -1,5 +1,5 @@
-from typing import Optional
 from functools import partial
+from typing import Optional, Union
 
 import jax
 import numpy as np
@@ -83,9 +83,22 @@ def predict_score_tt(
         if ind == 0:
             g_hat = fmap(x[:, k], q)[:, None, :]
         g_core = jnp.einsum('nri,rip->np', g_hat, wk)
-        g_hat = jnp.einsum('ni,nr->nri', fmap(x[:, k+1], q), g_core) 
+        g_hat = jnp.einsum('ni,nr->nri', fmap(x[:, k+1], q), g_core) # k+1? ind??
     pred = jnp.einsum('nri,rip->np', g_hat, w_tt[-1]).squeeze()
     return jnp.real(pred)
+
+@partial(jit, static_argnums=(3,))
+def predict_score_tt_linear(
+    x: Array, 
+    kd: int, 
+    w_tt: list[Array], 
+    fmap: FeatureMap,
+    w_tt_opt: list[Array],
+) -> Array:
+    """ 
+    Generate prediction scores for linearized TTKM model. 
+    """
+    raise NotImplementedError()
 
 #@jit
 def _prepare_system_tt(
@@ -193,3 +206,135 @@ def als_tt(
         w_tt = update_weights_tt(w_tt, kd, x, y, fmap, gamma_w, beta_e, buf)
         if tracker: tracker.track(w_tt, kd, fmap)
     return w_tt
+
+@partial(jit, static_argnums=(3,))
+def jacob_tt(
+    w_tt: list[Array], 
+    kd: int, 
+    x: Array, 
+    fmap: FeatureMap,
+) -> Array:
+    """
+    Compute the Jacobian matrix of the TTKM model prediction function.
+    """
+    raise NotImplementedError()
+
+def hess_cov_estimation(
+    w_tt: list[Array], 
+    kd: int, 
+    x: Array, 
+    fmap: FeatureMap, 
+    gamma_w: float, 
+    beta_e: float, 
+    hess_type: Union[str, int], 
+    hess_th: float = 1e-3,
+) -> tuple[Array, Optional[Array], Optional[Array]]:
+    """
+    Compute the Hessian approximation of the L2 loss in the TTKM model setting.
+    """
+    if hess_type == 'gauss_newton':
+        raise NotImplementedError()
+    elif hess_type == 'block':
+        raise NotImplementedError()
+    elif hess_type == 'mf':
+        raise NotImplementedError()
+    elif isinstance(hess_type, int):
+        w_hess = hess_one_core_tt(
+            hess_type, w_tt, kd, x, fmap, gamma_w, beta_e)
+    else:
+        raise ValueError(f'Bad hess_type: {hess_type}')
+    
+    if hess_th:
+        cov_f = partial(low_rank_cov_estimation, threshold=hess_th)
+    else:
+        cov_f = cov_estimation
+    
+    try: 
+        w_cov, w_cholesky = cov_f(w_hess)
+        success = True
+    except Exception as e: 
+        success = False
+
+    if success: 
+        return w_hess, w_cov, w_cholesky
+    else:
+        return w_hess, None, None
+    
+def prepare_p_core_left(
+    d_core: int, 
+    x: Array, 
+    kd: int, 
+    w_tt: list[Array],
+    fmap: FeatureMap,
+) -> Optional[list[Array]]:
+    if d_core == 0: return None
+    if d_core < 0 or d_core > len(w_tt): raise ValueError()
+    
+    for ind in range(d_core):
+        wk, (k, q) = w_tt[ind], divmod(ind, kd) # q starts from zero -> for fmap
+        if ind == 0:
+            g_hat = fmap(x[:, k], q)[:, None, :]
+        g_core = jnp.einsum('nri,rip->np', g_hat, wk)
+        g_hat = jnp.einsum('ni,nr->nri', fmap(x[:, k+1], q), g_core)
+    return g_core
+
+def prepare_q_core_right(
+    d_core: int, 
+    x: Array, 
+    kd: int, 
+    w_tt: list[Array],
+    fmap: FeatureMap,
+) -> Optional[list[Array]]:
+    if d_core == len(w_tt)-1: return None
+    if d_core < 0 or d_core >= len(w_tt): raise ValueError()
+
+    for ind in range(len(w_tt)-1, d_core, -1):
+        wk, (k, q) = w_tt[ind], divmod(ind, kd) # q starts from zero -> for fmap
+        if ind == len(w_tt)-1:
+            g_hat = fmap(x[:, k], q)[:, None, :]
+        g_core = jnp.einsum('npi,rip->nr', g_hat, wk)
+        g_hat = jnp.einsum('ni,nr->nri', fmap(x[:, k-1], q), g_core)
+    return g_core
+    
+#@partial(jit, static_argnums=(3,))
+def hess_one_core_tt(
+    d_core: int, 
+    w_tt: list[Array], 
+    kd: int, 
+    x: Array, 
+    fmap: FeatureMap, 
+    gamma_w: float, 
+    beta_e: float,
+) -> Array:
+    """
+    Estimation of the Hessian related to one TT-core.
+    """
+    k, q = divmod(d_core, kd)
+    fk_mtx = fmap(x[:, k], q)
+    p_mtx = prepare_p_core_left(d_core, x, kd, w_tt, fmap)
+    q_mtx = prepare_q_core_right(d_core, x, kd, w_tt, fmap)
+    a_mtx, _ = _prepare_system_tt(
+        q_mtx, fk_mtx, p_mtx, jnp.zeros(x.shape[0])
+    )
+    return beta_e*a_mtx + gamma_w*jnp.eye(a_mtx.shape[0])
+
+def cov_estimation(w_hess: Array) -> tuple[Array, Array]:
+    """
+    Compute corresponding covariance matrix and 
+    Cholesky factor based on a provided Hessian matrix.
+    """
+    w_cholesky = np.linalg.cholesky(w_hess)
+    w_cholesky = np.linalg.pinv(w_cholesky.T)
+    w_cov = w_cholesky.dot(w_cholesky.T)
+    return w_cov, w_cholesky
+
+def low_rank_cov_estimation(w_hess: Array, threshold: float = 1e-3) -> Array:
+    """
+    Compute corresponding low-rank covariance matrix and 
+    Cholesky factor based on a provided Hessian matrix.
+    """
+    s, u = np.linalg.eigh(w_hess)
+    mask = s >= threshold
+    w_cholesky = u[:, mask] * (1/jnp.sqrt(s[mask]))[None, :]
+    w_cov = w_cholesky.dot(w_cholesky.T)
+    return w_cov, w_cholesky

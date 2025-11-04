@@ -19,6 +19,8 @@ from source.model_functionality_tt import (
     predict_score_tt,
     prepare_buffer_tt,
     update_weights_tt,
+    prepare_p_core_left,
+    prepare_q_core_right,
 )
 
 def prepare_a_mtx(ind: int, buf: list, fk_mtx):
@@ -28,6 +30,14 @@ def prepare_a_mtx(ind: int, buf: list, fk_mtx):
         return khatri_rao_row(fk_mtx, buf[ind-1])
     else: 
         return khatri_rao_row(khatri_rao_row(buf[ind], fk_mtx), buf[ind-1])
+
+def prepare_a_mtx_v2(left_mtx, fk_mtx, right_mtx):
+    if left_mtx is None:
+        return khatri_rao_row(fk_mtx, right_mtx)
+    elif right_mtx is None:
+        return khatri_rao_row(left_mtx, fk_mtx)
+    else:
+        return khatri_rao_row(khatri_rao_row(left_mtx, fk_mtx), right_mtx)
 
 class TestModelFunctionality(unittest.TestCase):
     def setUp(self):
@@ -124,5 +134,22 @@ class TestModelFunctionality(unittest.TestCase):
 
         expected = np.sort(tracker.res_dict['loss'])[::-1]
         actual = tracker.res_dict['loss']
+        self.assertTrue(np.allclose(actual, expected))
+
+    def test_p_q_cores(self):
+        w_tt, kd = init_weights_tt(
+            self.m_order, self.rank_list, seed=self.seed)
+
+        # Test prediction ability:
+        d_core = 1
+        k, q = divmod(d_core, kd) # q starts from zero -> for fmap
+        wd_vec = w_tt[d_core].reshape(-1, order='F')
+        fk_mtx = self.fmap(self.x[:, k], q)
+        P = prepare_p_core_left(d_core, self.x, kd, w_tt, self.fmap)
+        Q = prepare_q_core_right(d_core, self.x, kd, w_tt, self.fmap)
+        a_mtx = prepare_a_mtx_v2(Q, fk_mtx, P)
+
+        expected = predict_score_tt(self.x, kd, w_tt, self.fmap)
+        actual = a_mtx.dot(wd_vec)
         self.assertTrue(np.allclose(actual, expected))
                 
