@@ -10,13 +10,14 @@ jax.config.update("jax_enable_x64", True)
 sys.path.append('./')
 
 from source.trackers import LossTracker
-from source.evaluation import l2_loss_tt
-from source.matrix_operations import khatri_rao_row
 from source.features import PPFeature, prepare_fmap
+from source.evaluation import l2_loss_tt, l2_loss_vec
+from source.matrix_operations import khatri_rao_row, tt2vec
 from source.model_functionality_tt import (
     als_tt,
     init_weights_tt,
     predict_score_tt,
+    hess_one_core_tt,
     prepare_buffer_tt,
     update_weights_tt,
     prepare_p_core_left,
@@ -38,6 +39,12 @@ def prepare_a_mtx_v2(left_mtx, fk_mtx, right_mtx):
         return khatri_rao_row(left_mtx, fk_mtx)
     else:
         return khatri_rao_row(khatri_rao_row(left_mtx, fk_mtx), right_mtx)
+    
+def hess_full_jax(w_tt, kd, x, y, fmap, gamma_w, beta_e, m_order, rank_list):
+    hess_f = jit(hessian(l2_loss_vec, argnums=0), static_argnums=(4, 7, 8))
+    w_vec = tt2vec(w_tt)
+    hw = hess_f(w_vec, kd, x, y, fmap, gamma_w, beta_e, m_order, rank_list)
+    return hw
 
 class TestModelFunctionality(unittest.TestCase):
     def setUp(self):
@@ -50,7 +57,7 @@ class TestModelFunctionality(unittest.TestCase):
         )
         self.y = jnp.array([1, 2, 3])
         self.m_order = 4
-        self.rank_list = [1, 4, 5, 1]
+        self.rank_list = (1, 4, 5, 1)
         self.seed = 12
         self.gamma_w = 0.1
         self.beta_e = 0.1 
@@ -152,4 +159,24 @@ class TestModelFunctionality(unittest.TestCase):
         expected = predict_score_tt(self.x, kd, w_tt, self.fmap)
         actual = a_mtx.dot(wd_vec)
         self.assertTrue(np.allclose(actual, expected))
-                
+
+    def test_hess_one_core_tt(self):
+        d_core = 1
+        ind = sum(
+            [
+                self.rank_list[i]*self.m_order*self.rank_list[i+1] 
+                for i in range(d_core)
+            ]
+        )
+        shift = self.rank_list[d_core]*self.m_order*self.rank_list[d_core+1]
+        H_jax = hess_full_jax(
+            self.w_tt, self.kd, self.x, self.y, self.fmap, 
+            self.gamma_w, self.beta_e, self.m_order, self.rank_list
+        )
+
+        expected = H_jax[ind:ind+shift, ind:ind+shift]
+        actual = hess_one_core_tt(
+            d_core, self.w_tt, self.kd, self.x, 
+            self.fmap, self.gamma_w, self.beta_e
+        )
+        self.assertTrue(np.allclose(actual, expected))
