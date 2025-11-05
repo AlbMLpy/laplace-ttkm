@@ -15,7 +15,11 @@ from source.evaluation import l2_loss_tt, l2_loss_vec
 from source.matrix_operations import khatri_rao_row, tt2vec
 from source.model_functionality_tt import (
     als_tt,
+    get_tt_size,
+    get_tt_ranks,
+    get_tt_sqnorm,
     init_weights_tt,
+    get_tt_ind_shift,
     predict_score_tt,
     hess_one_core_tt,
     prepare_buffer_tt,
@@ -63,7 +67,7 @@ class TestModelFunctionality(unittest.TestCase):
         self.beta_e = 0.1 
         self.n_epoch = 10
         self.w_tt, self.kd = init_weights_tt(
-                self.m_order, self.rank_list, seed=self.seed
+            self.m_order, self.rank_list, seed=self.seed
         )
         self.fmap, _ = prepare_fmap(PPFeature(), self.m_order, False)
 
@@ -179,4 +183,28 @@ class TestModelFunctionality(unittest.TestCase):
             d_core, self.w_tt, self.kd, self.x, 
             self.fmap, self.gamma_w, self.beta_e
         )
+        self.assertTrue(np.allclose(actual, expected))
+
+    def test_get_tt_size(self):
+        expected = 116
+        actual = get_tt_size(self.w_tt)
+        self.assertTrue(np.allclose(actual, expected))
+
+    def test_get_tt_ranks(self):
+        expected = self.rank_list
+        actual = get_tt_ranks(self.w_tt)
+        self.assertTrue(np.allclose(actual, expected))
+
+    def test_get_tt_sqnorm(self):
+        w_tt_vec = tt2vec(self.w_tt)
+        
+        expected = (w_tt_vec * w_tt_vec).sum()
+        actual = get_tt_sqnorm(self.w_tt)
+        self.assertTrue(np.allclose(actual, expected))
+
+    def test_get_tt_ind_shift(self):
+        d_core = 1
+        expected = (16, 80)
+        actual = get_tt_ind_shift(
+            d_core, self.m_order, self.rank_list)
         self.assertTrue(np.allclose(actual, expected))

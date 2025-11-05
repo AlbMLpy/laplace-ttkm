@@ -338,3 +338,17 @@ def low_rank_cov_estimation(w_hess: Array, threshold: float = 1e-3) -> Array:
     w_cholesky = u[:, mask] * (1/jnp.sqrt(s[mask]))[None, :]
     w_cov = w_cholesky.dot(w_cholesky.T)
     return w_cov, w_cholesky
+
+def get_tt_size(w_tt: list[Array]) -> int:
+    return sum([wd.size for wd in w_tt])
+
+def get_tt_sqnorm(w_tt: list[Array]) -> int:
+    return sum([(wd * wd).sum() for wd in w_tt])
+
+def get_tt_ranks(w_tt: list[Array]) -> tuple[int]:
+    return tuple([wd.shape[0] for wd in w_tt] + [1])
+
+def get_tt_ind_shift(d_core: int, m_order: int, tt_ranks: tuple[int]):
+    ind = sum([tt_ranks[i]*m_order*tt_ranks[i+1] for i in range(d_core)])
+    shift = tt_ranks[d_core]*m_order*tt_ranks[d_core+1]
+    return ind, shift
