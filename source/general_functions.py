@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from itertools import product
 
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+import jax.numpy as jnp
 
 def query_df(df_res: pd.DataFrame, query: dict) -> pd.DataFrame:
     mask = 1
@@ -34,3 +35,27 @@ def prepare_for_dump(dt: dict) -> dict:
 def check_nan(w_ten):
     if jnp.any(jnp.isnan(w_ten)) or (w_ten.max().item() > 1e30):
         raise ValueError("NaNs / big numbers detected in model parameters! Stop!")
+    
+def full_grid(params):
+    """
+    Full grid search on hyper parameters.
+    The function produces hyper parameters grid and names.
+    
+    Parameters
+    ----------
+    params : dict
+        Dictionary of parameters names and variable values,
+        e.g. {"A": [1, 2, 3], "B": [3, 4, 5]}.
+    
+    Returns
+    -------
+    grid, param_names : tuple
+        Tuple-like object, with the following attributes.
+    grid : set
+        Set of configurations.
+    param_names : tuple
+        Tuple of all the parameters names.
+    """
+    param_names, param_values = zip(*params.items())
+    grid = set(product(*param_values))
+    return grid, param_names 
