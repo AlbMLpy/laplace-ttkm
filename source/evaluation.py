@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from sklearn.metrics import root_mean_squared_error
 
 from .matrix_operations import vec2tt
-from .optimization import w_sample_diag
+from .prob_functions import w_sample_diag
 from .model_functionality_tt import predict_score_tt
 
 def rmse(y1, y2): 
