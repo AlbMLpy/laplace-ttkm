@@ -1,5 +1,6 @@
 from typing import Optional, Union
 
+import jax
 import numpy as np 
 from jax import Array
 import jax.numpy as jnp
@@ -46,6 +47,10 @@ def w_sample(w_mean_vec, w_cholesky, ind, shift, seed: Optional[int] = None):
     w_sample = w_sample.at[ind:ind + shift].set(
         w_sample[ind:ind + shift] + w_cholesky.dot(z))
     return w_sample
+
+def w_sample_diag(w_mean_vec, w_std, key):
+    z = jax.random.normal(key, shape=w_mean_vec.shape)
+    return w_mean_vec + w_std*z
 
 def get_scores(
     w_mean_vec: Array, 
