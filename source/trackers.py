@@ -22,7 +22,10 @@ class LossTracker:
             w_tt, kd, self.x_train, self.y_train, 
             fmap, _gamma_w, _beta_e
         ).item()
-        update_results_dict(self.res_dict, loss=train_loss)
+        update_results_dict(
+            self.res_dict, loss=train_loss,
+            beta_e=_beta_e, gamma_w=_gamma_w,
+        )
 
 class GradTracker(LossTracker):
     def __init__(self, x_train, y_train, beta_e, gamma_w, loss, grad_w):
@@ -46,5 +49,6 @@ class GradTracker(LossTracker):
             )
         ).item()
         update_results_dict(
-            self.res_dict, loss=train_loss, grad_norm=grad_norm,
+            self.res_dict, loss=train_loss, grad_norm=grad_norm, 
+            beta_e=_beta_e, gamma_w=_gamma_w,
         )

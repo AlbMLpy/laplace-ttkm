@@ -201,7 +201,7 @@ def als_tt(
     Compute "optimal" TT-based model weights using ALS optimization algorithm.
     """
     buf = prepare_buffer_tt(x, kd, w_tt, fmap)
-    if tracker: tracker.track(w_tt, kd, fmap)
+    if tracker: tracker.track(w_tt, kd, fmap, beta_e, gamma_w)
     for _ in range(n_epoch):
         w_tt = update_weights_tt(w_tt, kd, x, y, fmap, gamma_w, beta_e, buf)
         if tracker: tracker.track(w_tt, kd, fmap, beta_e, gamma_w)
