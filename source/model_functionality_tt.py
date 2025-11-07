@@ -204,7 +204,7 @@ def als_tt(
     if tracker: tracker.track(w_tt, kd, fmap)
     for _ in range(n_epoch):
         w_tt = update_weights_tt(w_tt, kd, x, y, fmap, gamma_w, beta_e, buf)
-        if tracker: tracker.track(w_tt, kd, fmap)
+        if tracker: tracker.track(w_tt, kd, fmap, beta_e, gamma_w)
     return w_tt
 
 @partial(jit, static_argnums=(3,))
