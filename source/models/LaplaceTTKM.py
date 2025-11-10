@@ -181,7 +181,7 @@ class LaplaceTTKM(AbstractTNKM):
 
         self.w_mean = als_tt(
             self.w_mean, self.kd, X, y, self._fmap, self.n_epoch, 
-            self.gamma_w, self.beta_e, self.tracker,
+            self.gamma_w, self.beta_e, tracker=self.tracker,
         )
         #self.w_ten, self.w_shape = process_weights(self.w_ten)
         self.w_hess, self.w_cov, self.w_cholesky = hess_cov_estimation(
