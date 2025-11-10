@@ -109,5 +109,5 @@ class TestLaplaceTTKMRealData:
         ys_train, ys_std_train = model.predict(x_train, True)
         loss_vals_ma = np.convolve(res['loss'], np.ones(10)/10, mode='valid')
         assert jnp.all(loss_vals_ma == jnp.sort(loss_vals_ma)[::-1]), "Loss should decrease over training."
-        assert nll(ys_train, ys_std_train, y_train) < 15, "Check train NLL."
+        assert nll(ys_train, ys_std_train**2, y_train) < 15, "Check train NLL."
         assert rmse(ys_train, y_train) < 60, "Check train RMSE."
