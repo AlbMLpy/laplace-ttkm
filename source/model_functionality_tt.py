@@ -162,6 +162,7 @@ def update_weights_tt(
     gamma_w: float, 
     beta_e: float, 
     buf: list[Array],
+    d_core_stop: Optional[int] = None,
     tracker: Optional[object] = None,
 ) -> list[Array]:
     """ 
@@ -184,6 +185,8 @@ def update_weights_tt(
         # Postprocess the buffer:
         postprocess_tt(bottom_up, ind, buf, fk_mtx, wk)
         if tracker: tracker.track(w_tt, kd, fmap)
+        if (d_core_stop is not None) and (d_core_stop == ind): 
+            break
     return w_tt
 
 def als_tt(
@@ -194,16 +197,20 @@ def als_tt(
     fmap: FeatureMap, 
     n_epoch: int, 
     gamma_w: float, 
-    beta_e: float, 
+    beta_e: float,
+    d_core_stop: Optional[int] = None, 
     tracker: Optional[object] = None,
 ) -> list[Array]:
     """
     Compute "optimal" TT-based model weights using ALS optimization algorithm.
     """
-    buf = prepare_buffer_tt(x, kd, w_tt, fmap)
+    buf, _d_core = prepare_buffer_tt(x, kd, w_tt, fmap), None
     if tracker: tracker.track(w_tt, kd, fmap, beta_e, gamma_w)
-    for _ in range(n_epoch):
-        w_tt = update_weights_tt(w_tt, kd, x, y, fmap, gamma_w, beta_e, buf)
+    for ep in range(n_epoch):
+        if (d_core_stop is not None) and (ep == n_epoch-1): 
+            _d_core = d_core_stop
+        w_tt = update_weights_tt(
+            w_tt, kd, x, y, fmap, gamma_w, beta_e, buf, _d_core)
         if tracker: tracker.track(w_tt, kd, fmap, beta_e, gamma_w)
     return w_tt
 
