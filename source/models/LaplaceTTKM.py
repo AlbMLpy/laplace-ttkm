@@ -83,6 +83,10 @@ class LaplaceTTKM(AbstractTNKM):
     beta_e_samples : int, default=10
         Determines the number of samples used to estimate the noise precision.
 
+    d_core_als : int, optional, default=None
+        Determines at which core to stop the ALS algorithm.
+        If 'd_core_als=None' then the algorithm stops the the second core.
+
     tracker : Tracker object, optional, default=None
         This object can be used to gather useful statistics during training.
         If 'tracker=None' then no tracking is used. 
@@ -118,6 +122,7 @@ class LaplaceTTKM(AbstractTNKM):
         n_epoch_vi: int = 1,
         pd_samples: int = 30, 
         beta_e_samples: int = 10, 
+        d_core_als: Optional[int] = None, 
         tracker: Optional[object] = None,
     ):
         super().__init__(
@@ -126,6 +131,7 @@ class LaplaceTTKM(AbstractTNKM):
             pd_samples, beta_e_samples, tracker,
         )
         self.tt_ranks = tt_ranks 
+        self.d_core_als = d_core_als
         self._qbase = None
         self._init_type = None
 
@@ -181,7 +187,7 @@ class LaplaceTTKM(AbstractTNKM):
 
         self.w_mean = als_tt(
             self.w_mean, self.kd, X, y, self._fmap, self.n_epoch, 
-            self.gamma_w, self.beta_e, tracker=self.tracker,
+            self.gamma_w, self.beta_e, self.d_core_als, tracker=self.tracker,
         )
         #self.w_ten, self.w_shape = process_weights(self.w_ten)
         self.w_hess, self.w_cov, self.w_cholesky = hess_cov_estimation(
