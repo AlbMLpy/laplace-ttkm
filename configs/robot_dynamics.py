@@ -41,7 +41,7 @@ def get_exp_config_cv(model_cls) -> dict:
         scaler=SCALER,
         par_fixed=dict(
             tt_ranks=TT_RANKS, fmap=FMAP, m_order=M_ORDER, 
-            n_epoch=N_EPOCH, beta_e=None, gamma_w=None, pd_mode=PD_MODE, 
+            n_epoch=N_EPOCH, pd_mode=PD_MODE, 
             hess_type=D_CORE_ALS, hess_th=HESS_THS, seed=MODEL_SEED, 
             n_epoch_vi=N_EPOCH_VI, pd_samples=PD_SAMPLES, 
             beta_e_samples=BETA_E_SAMPLES, d_core_als=D_CORE_ALS,
