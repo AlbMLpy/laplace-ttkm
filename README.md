@@ -93,7 +93,7 @@ all `docker` commands in this guide with `sudo`.
     -  **Run:** `cd variational_inference`
     -  **Train**: 
         ```bash
-        python training.py model 'all'
+        python training.py 'all'
         ```
         Computes evaluation metrics for further comparison. These are stored in `artifacts/training_artifacts`. Use `python training.py --help` to see all options (e.g., parallel/sequential mode and `n_jobs`).
     -  **Analyze:** If `Docker` run `python analysis.py`. Otherwise, run `analysis.ipynb` in VS Code using the `bayes_env` environment, or open it with `jupyter lab` to generate the final table for comparison.
@@ -102,7 +102,7 @@ all `docker` commands in this guide with `sudo`.
     -  **Run:** `cd robot_dynamics`
     -  **Train:** 
         ```bash
-        python training.py model 'all'
+        python training.py 'all'
         ```
         Computes evaluation metrics and predictions for further comparison. These are stored in `artifacts/training_artifacts`. 
     -  **Analyze:** If `Docker` run `python analysis.py`. Otherwise, run `analysis.ipynb` in VS Code using the `bayes_env` environment, or open it with `jupyter lab` to generate the final table for comparison and generate figures stored in `artifacts`.
