@@ -1,5 +1,16 @@
-Laplace Approximation For Tensor Train Kernel Machines In System Identification
-=====
+<div align="center">
+
+<h1>Laplace Approximation For Tensor Train Kernel Machines In System Identification</h1>
+
+<b> Authors: </b> <a href="https://albmlpy.github.io/">Albert Saiapin</a>, Kim Batselier
+
+[ArXiv](https://arxiv.org/abs/2512.02532) | [Experiments](https://github.com/AlbMLpy/laplace-ttkm?tab=readme-ov-file#-how-to-reproduce-the-numerical-experiments)
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2512.02532"><img src="assets/predictions.png?raw=True" alt="Figure 1" width="50%"></a>
+</p>
+
+</div>
 
 ## ✨ Project Description
 To address the scalability limitations of Gaussian process (GP) regression, several approximation techniques have been proposed. One such method is based on tensor networks, which utilizes an exponential number of basis functions without incurring exponential computational cost. However, extending this model to a fully probabilistic formulation introduces several design challenges. In particular, for tensor train (TT) models, it is unclear which TT-core should be treated in a Bayesian manner.
