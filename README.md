@@ -7,7 +7,7 @@
 [ArXiv](https://arxiv.org/abs/2512.02532) | [Experiments](https://github.com/AlbMLpy/laplace-ttkm?tab=readme-ov-file#-how-to-reproduce-the-numerical-experiments)
 
 <p align="center">
-  <a href="https://arxiv.org/abs/2512.02532"><img src="assets/predictions.png?raw=True" alt="Figure 1" width="50%"></a>
+  <a href="https://arxiv.org/abs/2512.02532"><img src="assets/predictions.png?raw=True" alt="Figure 1" width="70%"></a>
 </p>
 
 </div>
